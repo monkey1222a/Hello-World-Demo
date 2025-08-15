@@ -1,143 +1,88 @@
 import { useState } from 'react'
-import { Toaster } from './components/ui/sonner'
-import Header from './components/Header'
-import MapView from './components/MapView'
-import AnalysisPanel from './components/AnalysisPanel'
-import AuthModal from './components/AuthModal'
+import { Button } from './components/ui/button'
+import { Card, CardContent } from './components/ui/card'
+import { Sparkles, Github, Code, Rocket } from 'lucide-react'
 import { AuthProvider, useAuth } from './hooks/useAuth'
+import AuthModal from './components/AuthModal'
+import { Toaster } from './components/ui/sonner'
 
-export interface SelectedArea {
-  bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-  };
-  center: {
-    lat: number;
-    lng: number;
-  };
-  businessData?: any; // Will contain Google Maps business data
-}
+function HelloWorldContent() {
+  const [count, setCount] = useState(0)
+  const { user, signOut } = useAuth()
 
-function AppContent() {
-  const [selectedArea, setSelectedArea] = useState<SelectedArea | null>(null)
-  const [analysis, setAnalysis] = useState<string | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [selectedLanguage, setSelectedLanguage] = useState('')
-  const { user, loading } = useAuth()
-
-  console.log('App rendered with selectedArea:', selectedArea)
-  console.log('Current analysis state:', analysis)
-  console.log('Is analyzing:', isAnalyzing)
-  console.log('Current user:', user)
-  console.log('Selected language:', selectedLanguage)
-
-    const handleLogout = async () => {
-    console.log('App handleLogout called - clearing all state')
-    setSelectedArea(null)
-    setAnalysis(null)
-    setIsAnalyzing(false)
-    setSelectedLanguage('')
-  }
-
-  const handleLanguageChange = (language: string) => {
-    setSelectedLanguage(language)
-    // Clear analysis when language changes to avoid confusion
-    if (analysis) {
-      setAnalysis(null)
-    }
-  }
-
-  // Clear all function for the analysis panel
-  const handleClearAll = () => {
-    setSelectedArea(null)
-    setAnalysis(null)
-    setIsAnalyzing(false)
-  }
-
-  // Check if area has been analyzed
-  const isAnalyzed = !!analysis
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Loading GeoScope</h3>
-          <p className="text-gray-600">Initializing application...</p>
-        </div>
-      </div>
-    )
-  }
+  console.log('HelloWorldContent rendered with user:', user)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <Header 
-        user={user} 
-        onLogout={handleLogout}
-        selectedLanguage={selectedLanguage}
-        onLanguageChange={handleLanguageChange}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md backdrop-blur-lg bg-white/10 border-white/20 shadow-2xl">
+        <CardContent className="p-8 text-center space-y-6">
+          <div className="relative">
+            <Sparkles className="w-16 h-16 text-yellow-300 mx-auto animate-pulse" />
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-pink-400 rounded-full animate-bounce" />
+          </div>
+          
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+              Hello World! 🎉
+            </h1>
+            <p className="text-white/80 text-lg">
+              欢迎来到我的 React 演示页面
+            </p>
+          </div>
+
+          {user && (
+            <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+              <p className="text-white font-medium">
+                欢迎，{user.email}！
+              </p>
+              <Button 
+                onClick={signOut}
+                variant="outline" 
+                className="mt-2 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                退出登录
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+              <p className="text-white/90 text-2xl font-semibold">
+                点击次数: {count}
+              </p>
+              <Button 
+                onClick={() => setCount(count + 1)}
+                className="mt-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-2 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
+              >
+                点击我！
+              </Button>
+            </div>
+
+            <div className="flex justify-center space-x-4 text-white/70">
+              <div className="flex items-center space-x-1">
+                <Code className="w-4 h-4" />
+                <span className="text-sm">React</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Github className="w-4 h-4" />
+                <span className="text-sm">TypeScript</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Rocket className="w-4 h-4" />
+                <span className="text-sm">Tailwind</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-white/60 text-sm">
+            ✨ 这是一个响应式的 Hello World 页面 ✨
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 只有当用户未登录时才显示认证弹窗 */}
+      {!user && <AuthModal />}
       
-      {/* Desktop Layout */}
-      <div className="hidden lg:flex h-[calc(100vh-4rem)]">
-        <div className="flex-1">
-          <MapView 
-            onAreaSelected={setSelectedArea}
-            selectedArea={selectedArea}
-            selectedLanguage={selectedLanguage}
-            isAnalyzed={isAnalyzed}
-          />
-        </div>
-        <AnalysisPanel 
-          selectedArea={selectedArea}
-          analysis={analysis}
-          setAnalysis={setAnalysis}
-          isAnalyzing={isAnalyzing}
-          setIsAnalyzing={setIsAnalyzing}
-          user={user}
-          selectedLanguage={selectedLanguage}
-          onLanguageChange={handleLanguageChange}
-          onClearAll={handleClearAll}
-        />
-      </div>
-
-      {/* Mobile Layout */}
-      <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
-        {/* Map Section - Top half on mobile */}
-        <div className="flex-1 min-h-[50vh]">
-          <MapView 
-            onAreaSelected={setSelectedArea}
-            selectedArea={selectedArea}
-            selectedLanguage={selectedLanguage}
-            isAnalyzed={isAnalyzed}
-          />
-        </div>
-        
-        {/* Analysis Panel - Bottom half on mobile */}
-        <div className="flex-1 border-t border-border">
-          <AnalysisPanel 
-            selectedArea={selectedArea}
-            analysis={analysis}
-            setAnalysis={setAnalysis}
-            isAnalyzing={isAnalyzing}
-            setIsAnalyzing={setIsAnalyzing}
-            user={user}
-            selectedLanguage={selectedLanguage}
-            onLanguageChange={handleLanguageChange}
-            onClearAll={handleClearAll}
-          />
-        </div>
-      </div>
-
-      {/* Authentication Modal */}
-      <AuthModal 
-        isOpen={!user || !selectedLanguage} 
-        selectedLanguage={selectedLanguage}
-        onLanguageChange={handleLanguageChange}
-      />
-
       <Toaster />
     </div>
   )
@@ -146,7 +91,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <HelloWorldContent />
     </AuthProvider>
   )
 }
