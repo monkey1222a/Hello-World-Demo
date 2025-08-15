@@ -29,20 +29,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session)
-      if (session?.user) {
-        fetchUserData(session.user)
-      } else {
-        setLoading(false)
+    let mounted = true
+
+    const initializeAuth = async () => {
+      try {
+        console.log('Initializing auth...')
+        
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Error getting session:', error)
+          if (mounted) setLoading(false)
+          return
+        }
+
+        console.log('Initial session:', session)
+        
+        if (session?.user && mounted) {
+          await fetchUserData(session.user)
+        } else if (mounted) {
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('Error in initializeAuth:', error)
+        if (mounted) setLoading(false)
       }
-    })
+    }
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session)
+        
+        if (!mounted) return
+
         if (session?.user) {
           await fetchUserData(session.user)
         } else {
@@ -52,7 +73,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     )
 
-    return () => subscription.unsubscribe()
+    initializeAuth()
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const fetchUserData = async (supabaseUser: SupabaseUser) => {
@@ -64,9 +90,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .from('app_users')
         .select('*')
         .eq('id', supabaseUser.id)
-        .single()
+        .maybeSingle()
 
-      console.log('Existing user data:', existingUser, error)
+      console.log('Existing user query result:', { existingUser, error })
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching user data:', error)
@@ -74,9 +100,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return
       }
 
-      if (!existingUser) {
+      if (!existingUser || existingUser === null) {
+        console.log('User not found, creating new user record')
+        
         // Create new user record in app_users table
-        const newUser = {
+        const newUserData = {
           id: supabaseUser.id,
           email: supabaseUser.email!,
           subscription: supabaseUser.email === 'cem@trdefi.com' ? 'enterprise' as const : 'free' as const,
@@ -85,11 +113,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           created_at: new Date().toISOString()
         }
 
-        console.log('Creating new user:', newUser)
+        console.log('Creating new user with data:', newUserData)
 
         const { error: insertError } = await supabase
           .from('app_users')
-          .insert(newUser)
+          .insert(newUserData)
 
         if (insertError) {
           console.error('Error creating user record:', insertError)
@@ -98,14 +126,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setUser({
-          id: newUser.id,
-          email: newUser.email,
-          subscription: newUser.subscription,
-          searchesUsed: newUser.searches_used,
-          lastSearchDate: newUser.last_search_date,
-          createdAt: newUser.created_at
+          id: newUserData.id,
+          email: newUserData.email,
+          subscription: newUserData.subscription,
+          searchesUsed: newUserData.searches_used,
+          lastSearchDate: newUserData.last_search_date,
+          createdAt: newUserData.created_at
         })
       } else {
+        console.log('Found existing user:', existingUser)
         setUser({
           id: existingUser.id,
           email: existingUser.email,
@@ -139,36 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       createdAt: new Date().toISOString()
     }
 
-    // Check if admin user exists in database, if not create it
-    try {
-      const { data: existingUser, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('email', 'cem@trdefi.com')
-        .single()
-
-      if (error && error.code === 'PGRST116') {
-        // User doesn't exist, create admin user
-        const { error: insertError } = await supabase
-          .from('app_users')
-          .insert({
-            id: adminUser.id,
-            email: adminUser.email,
-            subscription: adminUser.subscription,
-            searches_used: adminUser.searchesUsed,
-            last_search_date: adminUser.lastSearchDate,
-            created_at: adminUser.createdAt
-          })
-
-        if (insertError) {
-          console.error('Error creating admin user:', insertError)
-        }
-      }
-    } catch (error) {
-      console.error('Error checking/creating admin user:', error)
-    }
-
     setUser(adminUser)
+    setLoading(false)
     console.log('Admin login successful')
     toast.success('✅ Admin access granted!')
   }
@@ -201,7 +202,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-    const signOut = async () => {
+  const signOut = async () => {
     try {
       // Clear local user state immediately
       setUser(null)
