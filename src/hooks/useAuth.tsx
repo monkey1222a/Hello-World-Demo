@@ -27,39 +27,82 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [initializedRef, setInitializedRef] = useState(false)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session)
-      if (session?.user) {
-        fetchUserData(session.user)
-      } else {
-        setLoading(false)
-      }
-    })
+    let authSubscription: any = null
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state change:', event, session)
+    const initializeAuth = async () => {
+      try {
+        // 首先获取初始会话
+        console.log('Initializing auth - getting initial session...')
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Error getting initial session:', error)
+          setLoading(false)
+          return
+        }
+
+        console.log('Initial session:', session)
+        
+        // 处理初始会话
         if (session?.user) {
           await fetchUserData(session.user)
         } else {
           setUser(null)
           setLoading(false)
         }
-      }
-    )
 
-    return () => subscription.unsubscribe()
-  }, [])
+        // 标记初始化完成
+        setInitializedRef(true)
+
+        // 初始化完成后，再设置状态监听器
+        console.log('Setting up auth state listener...')
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state change event:', event, 'session:', session)
+            
+            // 只有在初始化完成后才处理状态变化
+            if (initializedRef) {
+              if (session?.user) {
+                await fetchUserData(session.user)
+              } else {
+                setUser(null)
+                setLoading(false)
+              }
+            }
+          }
+        )
+
+        authSubscription = subscription
+      } catch (error) {
+        console.error('Error initializing auth:', error)
+        setLoading(false)
+      }
+    }
+
+    initializeAuth()
+
+    // 清理函数
+    return () => {
+      if (authSubscription) {
+        console.log('Cleaning up auth subscription')
+        authSubscription.unsubscribe()
+      }
+    }
+  }, []) // 移除 initializedRef 依赖，避免重复执行
+
+  // 当 initializedRef 状态改变时，更新监听器的行为
+  useEffect(() => {
+    console.log('Auth initialization status changed:', initializedRef)
+  }, [initializedRef])
 
   const fetchUserData = async (supabaseUser: SupabaseUser) => {
     try {
       console.log('Fetching user data for:', supabaseUser.id, supabaseUser.email)
       
-      // Check if user exists in our app_users table
+      // 检查用户是否存在于 app_users 表中
       const { data: existingUser, error } = await supabase
         .from('app_users')
         .select('*')
@@ -75,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!existingUser) {
-        // Create new user record in app_users table
+        // 创建新用户记录
         const newUser = {
           id: supabaseUser.id,
           email: supabaseUser.email!,
@@ -129,7 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('Invalid admin credentials')
     }
 
-    // Create a mock admin user session without going through Supabase auth
+    // 创建模拟管理员用户会话
     const adminUser: User = {
       id: 'admin-cem-trdefi',
       email: 'cem@trdefi.com',
@@ -139,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       createdAt: new Date().toISOString()
     }
 
-    // Check if admin user exists in database, if not create it
+    // 检查管理员用户是否存在于数据库中，不存在则创建
     try {
       const { data: existingUser, error } = await supabase
         .from('app_users')
@@ -148,7 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single()
 
       if (error && error.code === 'PGRST116') {
-        // User doesn't exist, create admin user
+        // 用户不存在，创建管理员用户
         const { error: insertError } = await supabase
           .from('app_users')
           .insert({
@@ -169,8 +212,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setUser(adminUser)
+    setLoading(false)
     console.log('Admin login successful')
-    toast.success('✅ Admin access granted!')
+    toast.success('✅ 管理员访问已授权！')
   }
 
   const signInWithOtp = async (email: string) => {
@@ -201,29 +245,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-    const signOut = async () => {
+  const signOut = async () => {
     try {
-      // Clear local user state immediately
+      // 立即清除本地用户状态
       setUser(null)
       
-      // For admin users, just show success message
+      // 对于管理员用户，只显示成功消息
       if (user?.email === 'cem@trdefi.com') {
-        toast.success('Admin logged out successfully')
+        toast.success('管理员退出成功')
         return
       }
 
-      // For regular users, sign out from Supabase
+      // 对于普通用户，从 Supabase 退出
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('Supabase sign out error:', error)
-        // Don't throw error, user state is already cleared
+        // 不抛出错误，用户状态已经清除
       }
       
-      toast.success('Logged out successfully')
+      toast.success('退出成功')
     } catch (error) {
       console.error('Sign out error:', error)
-      // Even if there's an error, user state is cleared - show success
-      toast.success('Logged out successfully')
+      // 即使有错误，用户状态也已清除 - 显示成功
+      toast.success('退出成功')
     }
   }
 
