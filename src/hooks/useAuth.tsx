@@ -168,30 +168,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const adminDirectLogin = async (email: string, password: string) => {
     console.log('Admin direct login attempt for:', email)
     
-    if (email !== 'cem@trdefi.com' || password !== 'Monster8535!') {
-      throw new Error('Invalid admin credentials')
+    // 支持两个内置账号
+    const validAccounts = [
+      { email: 'cem@trdefi.com', password: 'Monster8535!', subscription: 'enterprise' as const },
+      { email: 'test@geoscope.com', password: 'test123456', subscription: 'pro' as const }
+    ]
+    
+    const account = validAccounts.find(acc => acc.email === email && acc.password === password)
+    
+    if (!account) {
+      throw new Error('Invalid credentials')
     }
 
-    // 创建模拟管理员用户会话
+    // 创建模拟用户会话
     const adminUser: User = {
-      id: 'admin-cem-trdefi',
-      email: 'cem@trdefi.com',
-      subscription: 'enterprise',
+      id: email === 'cem@trdefi.com' ? 'admin-cem-trdefi' : 'test-user-geoscope',
+      email: email,
+      subscription: account.subscription,
       searchesUsed: 0,
       lastSearchDate: new Date().toISOString(),
       createdAt: new Date().toISOString()
     }
 
-    // 检查管理员用户是否存在于数据库中，不存在则创建
+    // 检查用户是否存在于数据库中，不存在则创建
     try {
       const { data: existingUser, error } = await supabase
         .from('app_users')
         .select('*')
-        .eq('email', 'cem@trdefi.com')
+        .eq('email', email)
         .single()
 
       if (error && error.code === 'PGRST116') {
-        // 用户不存在，创建管理员用户
+        // 用户不存在，创建用户
         const { error: insertError } = await supabase
           .from('app_users')
           .insert({
@@ -204,17 +212,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           })
 
         if (insertError) {
-          console.error('Error creating admin user:', insertError)
+          console.error('Error creating user:', insertError)
         }
       }
     } catch (error) {
-      console.error('Error checking/creating admin user:', error)
+      console.error('Error checking/creating user:', error)
     }
 
     setUser(adminUser)
     setLoading(false)
-    console.log('Admin login successful')
-    toast.success('✅ 管理员访问已授权！')
+    console.log('Direct login successful for:', email)
+    if (email === 'cem@trdefi.com') {
+      toast.success('✅ 管理员访问已授权！')
+    } else {
+      toast.success('✅ 测试账号登录成功！')
+    }
   }
 
   const signInWithOtp = async (email: string) => {

@@ -144,9 +144,17 @@ const AuthModal = ({ isOpen, selectedLanguage, onLanguageChange }: AuthModalProp
     return /^\d{6}$/.test(code)
   }
 
-  // Check if email is admin
-  const isAdminEmail = (email: string) => {
-    return email.toLowerCase() === 'cem@trdefi.com'
+  // Check if email is admin or test account
+  const isDirectLoginEmail = (email: string) => {
+    const directLoginEmails = ['cem@trdefi.com', 'test@geoscope.com']
+    return directLoginEmails.includes(email.toLowerCase())
+  }
+
+  // Quick login with test account
+  const handleQuickTestLogin = () => {
+    setEmail('test@geoscope.com')
+    setAdminPassword('test123456')
+    setStep('admin_password')
   }
 
   useEffect(() => {
@@ -169,8 +177,8 @@ const AuthModal = ({ isOpen, selectedLanguage, onLanguageChange }: AuthModalProp
       return
     }
 
-    // Check if admin email
-    if (isAdminEmail(email)) {
+    // Check if direct login email (admin or test account)
+    if (isDirectLoginEmail(email)) {
       setStep('admin_password')
       return
     }
@@ -314,6 +322,36 @@ const AuthModal = ({ isOpen, selectedLanguage, onLanguageChange }: AuthModalProp
                     {t.orContinueWith}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Quick Test Login Button */}
+            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-5 h-5 text-green-600" />
+                <h3 className="font-semibold text-green-800">🎯 快速测试登录 / Quick Test Login</h3>
+              </div>
+              <div className="space-y-2 text-xs mb-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                  <span className="text-gray-700">Pro账号 - 无限搜索 + 30个报告/月</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                  <span className="text-gray-700">Pro Account - Unlimited searches + 30 reports/month</span>
+                </div>
+              </div>
+              <Button 
+                onClick={handleQuickTestLogin}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                size="sm"
+              >
+                <Key className="w-4 h-4 mr-2" />
+                使用测试账号登录 / Use Test Account
+              </Button>
+              <div className="mt-2 p-2 bg-white/60 rounded text-xs text-gray-600 font-mono">
+                <div>📧 Email: test@geoscope.com</div>
+                <div>🔑 Password: test123456</div>
               </div>
             </div>
 
